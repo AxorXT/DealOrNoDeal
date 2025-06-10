@@ -3822,7 +3822,7 @@ MonoBehaviour:
   m_PhysicalUnit: 3
   m_FallbackScreenDPI: 96
   m_DefaultSpriteDPI: 96
-  m_DynamicPixelsPerUnit: 10
+  m_DynamicPixelsPerUnit: 1
   m_PresetInfoIsWorld: 1
 --- !u!223 &348322528
 Canvas:
@@ -3855,8 +3855,8 @@ RectTransform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 348322525}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -26.499794}
+  m_LocalScale: {x: 0.003, y: 0.003, z: 0.003}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1162551295}
@@ -3864,7 +3864,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 960, y: 540}
+  m_AnchoredPosition: {x: -24.959473, y: 15.433534}
   m_SizeDelta: {x: 1920, y: 1080}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &358961875
@@ -21332,8 +21332,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1806829304f5b5741aa8f0988ae2711e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  iconoE: {fileID: 1162551294}
-  distanciaParaInteractuar: 3
+  iconoE: {fileID: 348322525}
+  distanciaParaInteractuar: 2
   alturaIcono: 2.2
 --- !u!65 &919132147498795475
 BoxCollider:
@@ -21373,8 +21373,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1806829304f5b5741aa8f0988ae2711e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  iconoE: {fileID: 1162551294}
-  distanciaParaInteractuar: 3
+  iconoE: {fileID: 348322525}
+  distanciaParaInteractuar: 2
   alturaIcono: 2.2
 --- !u!65 &919132147849974446
 BoxCollider:
@@ -21414,8 +21414,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1806829304f5b5741aa8f0988ae2711e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  iconoE: {fileID: 1162551294}
-  distanciaParaInteractuar: 3
+  iconoE: {fileID: 348322525}
+  distanciaParaInteractuar: 2
   alturaIcono: 2.2
 --- !u!65 &919132148000142977
 BoxCollider:
@@ -21493,8 +21493,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1806829304f5b5741aa8f0988ae2711e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  iconoE: {fileID: 1162551294}
-  distanciaParaInteractuar: 3
+  iconoE: {fileID: 348322525}
+  distanciaParaInteractuar: 2
   alturaIcono: 2.2
 --- !u!65 &919132148201044763
 BoxCollider:
@@ -21610,8 +21610,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1806829304f5b5741aa8f0988ae2711e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  iconoE: {fileID: 1162551294}
-  distanciaParaInteractuar: 3
+  iconoE: {fileID: 348322525}
+  distanciaParaInteractuar: 2
   alturaIcono: 2.2
 --- !u!65 &919132148555710577
 BoxCollider:
@@ -21689,8 +21689,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1806829304f5b5741aa8f0988ae2711e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  iconoE: {fileID: 1162551294}
-  distanciaParaInteractuar: 3
+  iconoE: {fileID: 348322525}
+  distanciaParaInteractuar: 2
   alturaIcono: 2.2
 --- !u!65 &919132149041279308
 BoxCollider:
@@ -21730,8 +21730,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1806829304f5b5741aa8f0988ae2711e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  iconoE: {fileID: 1162551294}
-  distanciaParaInteractuar: 3
+  iconoE: {fileID: 348322525}
+  distanciaParaInteractuar: 2
   alturaIcono: 2.2
 --- !u!65 &919132149250363946
 BoxCollider:
@@ -21771,8 +21771,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1806829304f5b5741aa8f0988ae2711e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  iconoE: {fileID: 1162551294}
-  distanciaParaInteractuar: 3
+  iconoE: {fileID: 348322525}
+  distanciaParaInteractuar: 2
   alturaIcono: 2.2
 --- !u!65 &919132149378090208
 BoxCollider:

@@ -34,13 +34,19 @@ public class NPCInteractivo : MonoBehaviour
         jugadorCerca = distancia <= distanciaParaInteractuar;
 
         if (instanciaIcono != null)
+        {
             instanciaIcono.SetActive(jugadorCerca);
+            if (jugadorCerca)
+            {
+                instanciaIcono.transform.position = transform.position + Vector3.up * alturaIcono;
+                instanciaIcono.transform.LookAt(Camera.main.transform);
+                instanciaIcono.transform.Rotate(0, 180, 0); // Si se ve de espaldas
+            }
+        }
 
         if (jugadorCerca && Input.GetKeyDown(KeyCode.E))
         {
-            // Aquí abres tu UI de diálogo o conversación
             Debug.Log("Iniciar conversación con " + gameObject.name);
-            // TODO: Llamar a tu sistema de diálogo
         }
     }
 }
