@@ -13,11 +13,20 @@ public class NPCInteractivo : MonoBehaviour
     [Header("Altura del ícono E")]
     public float alturaIcono = 2.2f;
 
+    [Header("Diálogo")]
+    public DialogueSequence secuenciaDeDialogo;
+
+    private DialogueManager dialogueManager;
+    private PlayerMovement playerMovement;
+    private CamaraFollow camaraFollow;
+
     void Start()
     {
         jugador = GameObject.FindGameObjectWithTag("Player").transform;
+        playerMovement = jugador.GetComponent<PlayerMovement>();
+        dialogueManager = Object.FindFirstObjectByType<DialogueManager>();
+        camaraFollow = Camera.main.GetComponent<CamaraFollow>();
 
-        // Instanciar pero desactivado al inicio
         if (iconoE != null)
         {
             Vector3 posicionIcono = transform.position + Vector3.up * alturaIcono;
@@ -40,13 +49,30 @@ public class NPCInteractivo : MonoBehaviour
             {
                 instanciaIcono.transform.position = transform.position + Vector3.up * alturaIcono;
                 instanciaIcono.transform.LookAt(Camera.main.transform);
-                instanciaIcono.transform.Rotate(0, 180, 0); // Si se ve de espaldas
+                instanciaIcono.transform.Rotate(0, 180, 0);
             }
         }
 
         if (jugadorCerca && Input.GetKeyDown(KeyCode.E))
         {
-            Debug.Log("Iniciar conversación con " + gameObject.name);
+            IniciarConversacion();
         }
+    }
+
+    public void IniciarConversacion()
+    {
+        if (playerMovement != null) playerMovement.enabled = false;
+        if (camaraFollow != null) camaraFollow.SetFocus(transform);
+
+        if (dialogueManager != null && secuenciaDeDialogo != null)
+        {
+            dialogueManager.StartDialogue(secuenciaDeDialogo, this);
+        }
+    }
+
+    public void FinalizarConversacion()
+    {
+        if (playerMovement != null) playerMovement.enabled = true;
+        if (camaraFollow != null) camaraFollow.ClearFocus();
     }
 }
