@@ -54,9 +54,21 @@ public class ManagerNPCs : MonoBehaviour
             Transform punto = puntosAleatorios[i];
             GameObject prefabElegido = npcConContratoPrefabs[Random.Range(0, npcConContratoPrefabs.Count)];
 
-            // Usa la rotación que ya tiene el punto en la escena
+            // Usa la rotación del punto
             GameObject npc = Instantiate(prefabElegido, punto.position, punto.rotation);
-            npc.GetComponent<NPCEmpleo>().AsignarContrato(contratosAsignados[i]);
+
+            //Asignar contrato al NPCInteractivo
+            var npcScript = npc.GetComponent<NPCInteractivo>();
+            if (npcScript != null)
+            {
+                npcScript.contratoAsignado = contratosAsignados[i];
+            }
+
+            var npcEmpleo = npc.GetComponent<NPCEmpleo>();
+            if (npcEmpleo != null)
+            {
+                npcEmpleo.AsignarContrato(contratosAsignados[i]);
+            }
         }
 
         for (int i = contratosAsignados.Count; i < puntosAleatorios.Count; i++)
@@ -64,7 +76,6 @@ public class ManagerNPCs : MonoBehaviour
             Transform punto = puntosAleatorios[i];
             GameObject prefabElegido = npcDecorativoPrefab[Random.Range(0, npcDecorativoPrefab.Count)];
 
-            // También usa la rotación definida en el editor
             Instantiate(prefabElegido, punto.position, punto.rotation);
         }
     }

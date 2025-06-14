@@ -20,6 +20,12 @@ public class NPCInteractivo : MonoBehaviour
     private PlayerMovement playerMovement;
     private CamaraFollow camaraFollow;
 
+    [Header("Datos del contrato")]
+    public JobData contratoAsignado;
+
+    [Header("Opciones especiales")]
+    public bool mostrarDecisionInicial = true;
+
     void Start()
     {
         jugador = GameObject.FindGameObjectWithTag("Player").transform;
@@ -74,5 +80,6 @@ public class NPCInteractivo : MonoBehaviour
     {
         if (playerMovement != null) playerMovement.enabled = true;
         if (camaraFollow != null) camaraFollow.ClearFocus();
+        gameObject.SetActive(false);
     }
 }
