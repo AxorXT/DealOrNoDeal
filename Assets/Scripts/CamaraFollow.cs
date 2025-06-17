@@ -34,7 +34,7 @@ public class CamaraFollow : MonoBehaviour
         }
         else
         {
-            Vector3 offset = new Vector3(1f, 1.5f, 0);
+            Vector3 offset = new Vector3(2f, 2f, 0);
             transform.position = focusTarget.position + offset;
             transform.LookAt(focusTarget.position + Vector3.up * 1.5f);
         }

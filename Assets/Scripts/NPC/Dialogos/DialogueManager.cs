@@ -109,6 +109,6 @@ public class DialogueManager : MonoBehaviour
         // Aquí un ejemplo simple:
 
         PlayerPrefs.SetString("NPCQueAsignoTrabajo", npcActual.name);
-        UnityEngine.SceneManagement.SceneManager.LoadScene("NombreDelMinijuego");
+        UnityEngine.SceneManagement.SceneManager.LoadScene("MinijuegoPintor");
     }
 }

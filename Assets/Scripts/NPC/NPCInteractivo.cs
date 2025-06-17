@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
+using System.Collections.Generic;
 
 public class NPCInteractivo : MonoBehaviour
 {
@@ -28,22 +30,63 @@ public class NPCInteractivo : MonoBehaviour
 
     void Start()
     {
-        jugador = GameObject.FindGameObjectWithTag("Player").transform;
-        playerMovement = jugador.GetComponent<PlayerMovement>();
-        dialogueManager = Object.FindFirstObjectByType<DialogueManager>();
-        camaraFollow = Camera.main.GetComponent<CamaraFollow>();
-
-        if (iconoE != null)
-        {
-            Vector3 posicionIcono = transform.position + Vector3.up * alturaIcono;
-            instanciaIcono = Instantiate(iconoE, posicionIcono, Quaternion.identity, transform);
-            instanciaIcono.SetActive(false);
-        }
+    // 1. Buscar jugador si no está asignado
+    if (jugador == null)
+    {
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null) jugador = playerObj.transform;
     }
+
+    // 2. Obtener componentes de forma segura
+    if (jugador != null)
+    {
+        playerMovement = jugador.GetComponent<PlayerMovement>();
+    }
+    else
+    {
+        Debug.LogError("No se encontró al jugador en la escena");
+    }
+
+    // 3. Buscar DialogueManager si no está asignado
+    if (dialogueManager == null)
+    {
+        dialogueManager = Object.FindFirstObjectByType<DialogueManager>();
+    }
+
+    // 4. Buscar cámara si no está asignada
+    if (camaraFollow == null && Camera.main != null)
+    {
+        camaraFollow = Camera.main.GetComponent<CamaraFollow>();
+    }
+
+    // 5. Crear ícono "E" solo si existe el prefab
+    if (iconoE != null)
+    {
+        Vector3 posicionIcono = transform.position + Vector3.up * alturaIcono;
+        instanciaIcono = Instantiate(iconoE, posicionIcono, Quaternion.identity, transform);
+        instanciaIcono.SetActive(false);
+    }
+    else
+    {
+        Debug.LogWarning("Prefab del ícono E no asignado en NPC: " + gameObject.name);
+    }
+}
 
     void Update()
     {
-        if (jugador == null) return;
+        if (jugador == null)
+        {
+            GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+            if (playerObj != null)
+            {
+                jugador = playerObj.transform;
+                playerMovement = jugador.GetComponent<PlayerMovement>();
+            }
+            else
+            {
+                return;
+            }
+        }
 
         float distancia = Vector3.Distance(jugador.position, transform.position);
         jugadorCerca = distancia <= distanciaParaInteractuar;
@@ -81,5 +124,10 @@ public class NPCInteractivo : MonoBehaviour
         if (playerMovement != null) playerMovement.enabled = true;
         if (camaraFollow != null) camaraFollow.ClearFocus();
         gameObject.SetActive(false);
+    }
+
+    internal NPCInteractivo FirstOrDefault(System.Func<object, bool> value)
+    {
+        throw new System.NotImplementedException();
     }
 }

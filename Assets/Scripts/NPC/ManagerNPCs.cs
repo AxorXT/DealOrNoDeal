@@ -1,5 +1,8 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
+using System.Linq;
 
 public class ManagerNPCs : MonoBehaviour
 {
@@ -15,12 +18,26 @@ public class ManagerNPCs : MonoBehaviour
     [Header("Puntos con rotación tipo B (definida en escena)")]
     public List<Transform> puntosRotacionB;
 
+    public GameObject contratoButtonPrefab; // Prefab del botón (crea uno en UI/Button)
+    public Transform canvasContratos; // Arrastra el Canvas World Space aquí
+
     private List<JobData> contratosAsignados = new List<JobData>();
 
     void Start()
     {
         GenerarContratos();
         ColocarNPCsAleatorios();
+        CrearBotonesContratos();
+    }
+
+    void CrearBotonesContratos()
+    {
+        foreach (Transform punto in puntosRotacionA) // Usa tus puntos de spawn
+        {
+            GameObject button = Instantiate(contratoButtonPrefab, canvasContratos.transform);
+            button.transform.position = punto.position + Vector3.up * 2; // Offset en Y
+            button.GetComponent<Button>().onClick.AddListener(() => OnContratoSeleccionado(punto));
+        }
     }
 
     void GenerarContratos()
@@ -88,5 +105,56 @@ public class ManagerNPCs : MonoBehaviour
             (list[i], list[rand]) = (list[rand], list[i]);
         }
         return list;
+    }
+
+    void OnContratoSeleccionado(Transform puntoSpawn)
+    {
+        // 1. Encuentra el NPC asociado a este punto
+        NPCInteractivo npc = FindNPCAtSpawnPoint(puntoSpawn);
+        if (npc != null)
+        {
+            // 2. Guarda el contrato seleccionado
+            GameManager.Instance.ContratoSeleccionado = npc.contratoAsignado;
+
+            // 3. Desactiva todos los botones
+            foreach (Button btn in canvasContratos.GetComponentsInChildren<Button>())
+            {
+                btn.gameObject.SetActive(false);
+            }
+
+            // 4. Transición al jugador
+            Object.FindFirstObjectByType<CameraManager>().TransitionToPlayer();
+        }
+    }
+
+    public NPCInteractivo FindNPCAtSpawnPoint(Transform punto)
+    {
+        NPCInteractivo[] todosLosNPCs = FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None);
+
+        foreach (var npc in todosLosNPCs)
+        {
+            if (Vector3.Distance(npc.transform.position, punto.position) < 0.1f)
+            {
+                return npc;
+            }
+        }
+
+        return null;
+    }
+
+    void AsignarContratosANPCs()
+    {
+        // Busca todos los botones de contrato y NPCs en la escena
+        ContratoMapa[] botonesContratos = FindObjectsByType<ContratoMapa>(FindObjectsSortMode.None);
+        NPCInteractivo[] npcs = FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None);
+
+        // Asigna cada botón a un NPC
+        for (int i = 0; i < botonesContratos.Length; i++)
+        {
+            if (i < npcs.Length) // Asegura que haya suficientes NPCs
+            {
+                botonesContratos[i].AsignarNPC(npcs[i]); // ¡Vincula el botón al NPC!
+            }
+        }
     }
 }
