@@ -20,6 +20,10 @@ public class ContratoMapa : MonoBehaviour
     public void AsignarNPC(NPCInteractivo npc)
     {
         npcAsignado = npc;
+        if (npcAsignado != null)
+        {
+            contratoAsignado = npcAsignado.contratoAsignado;
+        }
     }
 
     

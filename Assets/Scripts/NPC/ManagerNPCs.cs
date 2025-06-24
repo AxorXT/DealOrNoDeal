@@ -22,20 +22,31 @@ public class ManagerNPCs : MonoBehaviour
     public Transform canvasContratos; // Arrastra el Canvas World Space aquí
 
     private List<JobData> contratosAsignados = new List<JobData>();
+    private Dictionary<Transform, NPCInteractivo> npcPorPunto = new Dictionary<Transform, NPCInteractivo>();
 
     void Start()
     {
         GenerarContratos();
         ColocarNPCsAleatorios();
         CrearBotonesContratos();
+        
     }
 
     void CrearBotonesContratos()
     {
-        foreach (Transform punto in puntosRotacionA) // Usa tus puntos de spawn
+        foreach (var kvp in npcPorPunto)
         {
+            Transform punto = kvp.Key;
+            NPCInteractivo npc = kvp.Value;
+
             GameObject button = Instantiate(contratoButtonPrefab, canvasContratos.transform);
-            button.transform.position = punto.position + Vector3.up * 2; // Offset en Y
+            button.transform.position = punto.position + Vector3.up * 13; // Puedes ajustar el offset Y si hace falta
+
+            ContratoMapa contratoMapa = button.GetComponent<ContratoMapa>();
+            contratoMapa.contratoAsignado = npc.contratoAsignado;
+            contratoMapa.AsignarNPC(npc);
+
+            // Agregar listener para manejar la selección
             button.GetComponent<Button>().onClick.AddListener(() => OnContratoSeleccionado(punto));
         }
     }
@@ -79,6 +90,7 @@ public class ManagerNPCs : MonoBehaviour
             if (npcScript != null)
             {
                 npcScript.contratoAsignado = contratosAsignados[i];
+                npcPorPunto[punto] = npcScript;
             }
 
             var npcEmpleo = npc.GetComponent<NPCEmpleo>();
