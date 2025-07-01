@@ -45,11 +45,15 @@ public class CameraManager : MonoBehaviour
         Vector3 posInicial = transform.position;
         Quaternion rotInicial = transform.rotation;
 
+        Vector3 offset = new Vector3(0, 5f, -5f); // Ajusta según tu ángulo deseado
+        Vector3 destino = jugador.position + offset;
+        Quaternion rotDestino = Quaternion.LookRotation(jugador.position - destino); // Mirar al jugador
+
         while (tiempo < duracionTransicion)
         {
             float progreso = tiempo / duracionTransicion;
-            transform.position = Vector3.Lerp(posInicial, jugador.position, progreso);
-            transform.rotation = Quaternion.Slerp(rotInicial, jugador.rotation, progreso);
+            transform.position = Vector3.Lerp(posInicial, destino, progreso);
+            transform.rotation = Quaternion.Slerp(rotInicial, rotDestino, progreso);
 
             tiempo += Time.deltaTime;
             yield return null;
@@ -73,6 +77,21 @@ public class CameraManager : MonoBehaviour
         }
         transform.position = vistaMapa.position;
         transform.rotation = vistaMapa.rotation;
+    }
+
+    public void RestaurarPosicionDesdeGuardado()
+    {
+        GameState estado = SaveSystem.CargarEstado();
+        if (estado != null)
+        {
+            transform.position = estado.posicionCamara;
+            transform.rotation = Quaternion.Euler(estado.rotacionCamara);
+        }
+        else
+        {
+            // Si no hay datos guardados, volvemos a la vista inicial del mapa
+            ConfigurarVistaInicial();
+        }
     }
 }
 

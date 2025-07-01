@@ -10,20 +10,45 @@ public class UIManager : MonoBehaviour
     public GameObject camaraJugadorObj;
     public GameObject player;
     public GameObject simbolosContratos; // contenedor de íconos
+    public GameObject botonVerPremios;
 
     public CanvasGroup fadeGroup; // para fade in/out opcional
 
-    private void Start()
+    void Start()
     {
+        GameState estadoGuardado = SaveSystem.CargarEstado();
+
+        if (estadoGuardado != null)
+        {
+            // Restaurar el estado completo del juego desde el JSON
+            SaveSystem.RestaurarDesdeGameState(estadoGuardado);
+
+            // Ocultar el menú y activar la interfaz del gameplay
+            menuInicialUI.SetActive(false);
+            camaraOverview.enabled = false;
+            camaraJugadorObj.SetActive(false);
+            player.GetComponent<PlayerMovement>().enabled = true;
+            simbolosContratos.SetActive(true);
+            FindAnyObjectByType<UIListaSueldos>()?.ActivarInputJugador();
+
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            Time.timeScale = 1f;
+
+            return;
+        }
+
+        // Si no hay guardado, iniciar flujo normal (menú principal)
         Time.timeScale = 0f;
 
         camaraOverview.enabled = true;
         camaraJugadorObj.SetActive(false);
-        player.GetComponent<PlayerMovement>().enabled = false;
+        player.GetComponent<PlayerMovement>().enabled = true;
         simbolosContratos.SetActive(false);
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
+        botonVerPremios.SetActive(false);
     }
 
     public void Jugar()
@@ -76,9 +101,8 @@ public class UIManager : MonoBehaviour
             }
         }
 
-        camaraOverview.enabled = false;
-        camaraJugadorObj.SetActive(true);
         player.GetComponent<PlayerMovement>().enabled = true;
+        FindAnyObjectByType<UIListaSueldos>()?.ActivarInputJugador();
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;

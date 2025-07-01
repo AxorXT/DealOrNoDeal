@@ -17,9 +17,12 @@ public class DialogueManager : MonoBehaviour
     public Button botonAceptar;
     public Button botonRechazar;
 
+    private UIListaSueldos uiListaSueldos;
+
     void Start()
     {
         decisionPanel.SetActive(false);
+        uiListaSueldos = FindAnyObjectByType<UIListaSueldos>();
     }
 
     public void StartDialogue(DialogueSequence sequence, NPCInteractivo npc)
@@ -47,12 +50,21 @@ public class DialogueManager : MonoBehaviour
 
             botonAceptar.onClick.AddListener(() => {
                 decisionPanel.SetActive(false);
-                TransportarAMinijuego();
+                if (npcActual != null)
+                    npcActual.ocultarAlFinalizarDialogo = true;
+                SaveSystem.GuardarEstado(SaveSystem.CrearGameStateActual());
+                UnityEngine.SceneManagement.SceneManager.LoadScene("SimulacionMinijuego");
             });
 
             botonRechazar.onClick.AddListener(() => {
                 decisionPanel.SetActive(false);
-                EndDialogue();
+                dialoguePanel.SetActive(false);
+                isDialogueActive = false;
+                Cursor.visible = false;
+                Cursor.lockState = CursorLockMode.Locked;
+
+                npcActual.FinalizarConversacion(false);
+                npcActual = null;
             });
         }
 
@@ -89,26 +101,29 @@ public class DialogueManager : MonoBehaviour
 
         if (npcActual != null)
         {
+            if (npcActual.trabajoYaAsignado)
+            {
+                npcActual.gameObject.SetActive(false);
+
+                if (uiListaSueldos != null && npcActual.contratoAsignado != null)
+                {
+                    uiListaSueldos.MarcarSueldoComoRevelado(npcActual.contratoAsignado.sueldo);
+                }
+            }
+
             npcActual.FinalizarConversacion();
             npcActual = null;
         }
     }
 
-    void Update()
+    public bool IsDialogueActive()
     {
-        if (isDialogueActive && Input.GetKeyDown(KeyCode.Space))
-        {
-            DisplayNextLine();
-        }
+        return isDialogueActive;
     }
 
-    public void TransportarAMinijuego()
+    public void SetDialogueActive(bool estado)
     {
-        // Podrías usar SceneManager para cargar otra escena
-        // o activar un panel de minijuego
-        // Aquí un ejemplo simple:
-
-        PlayerPrefs.SetString("NPCQueAsignoTrabajo", npcActual.name);
-        UnityEngine.SceneManagement.SceneManager.LoadScene("MinijuegoPintor");
+        isDialogueActive = estado;
+        dialoguePanel.SetActive(estado);
     }
 }

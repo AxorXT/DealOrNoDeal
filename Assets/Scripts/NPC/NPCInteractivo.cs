@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.SceneManagement;
 
 public class NPCInteractivo : MonoBehaviour
 {
@@ -22,11 +23,20 @@ public class NPCInteractivo : MonoBehaviour
     private PlayerMovement playerMovement;
     private CamaraFollow camaraFollow;
 
+    [Header("Segundo diálogo después del minijuego")]
+    public DialogueSequence segundoDialogo;
+
+    [HideInInspector]
+    public bool trabajoYaAsignado = false;
+
     [Header("Datos del contrato")]
     public JobData contratoAsignado;
 
     [Header("Opciones especiales")]
     public bool mostrarDecisionInicial = true;
+
+    [HideInInspector]
+    public bool ocultarAlFinalizarDialogo = true;
 
     void Start()
     {
@@ -113,21 +123,40 @@ public class NPCInteractivo : MonoBehaviour
         if (playerMovement != null) playerMovement.enabled = false;
         if (camaraFollow != null) camaraFollow.SetFocus(transform);
 
-        if (dialogueManager != null && secuenciaDeDialogo != null)
+        if (dialogueManager != null)
         {
-            dialogueManager.StartDialogue(secuenciaDeDialogo, this);
+            if (trabajoYaAsignado && segundoDialogo != null)
+            {
+                dialogueManager.StartDialogue(segundoDialogo, this);
+            }
+            else if (secuenciaDeDialogo != null)
+            {
+                dialogueManager.StartDialogue(secuenciaDeDialogo, this);
+            }
         }
     }
 
-    public void FinalizarConversacion()
+    public void FinalizarConversacion(bool ocultarNPC = true)
     {
         if (playerMovement != null) playerMovement.enabled = true;
         if (camaraFollow != null) camaraFollow.ClearFocus();
-        gameObject.SetActive(false);
+
+        if (ocultarAlFinalizarDialogo)
+            gameObject.SetActive(false);
     }
 
     internal NPCInteractivo FirstOrDefault(System.Func<object, bool> value)
     {
         throw new System.NotImplementedException();
+    }
+
+    public void AceptarTrabajoDesdeDialogo()
+    {
+        GameState estado = SaveSystem.CargarEstado() ?? new GameState();
+        estado.npcActivoNombre = this.name; // Asegúrate de que cada NPC tenga un nombre único
+        estado.mostrarDialogoSueldo = true;
+        SaveSystem.GuardarEstado(estado);
+
+        SceneManager.LoadScene("JUEGO"); // Cambiar por el nombre real de tu escena
     }
 }

@@ -20,6 +20,12 @@ public class NPCEmpleo : MonoBehaviour
             contrato.revelado = true;
             Debug.Log("El NPC te ofreció un empleo: " + contrato.nombre + " con sueldo $" + contrato.sueldo);
             GetComponentInChildren<Renderer>().material.color = Color.gray;
+            
+            var listaUI = FindAnyObjectByType<UIListaSueldos>();
+            if (listaUI != null)
+            {
+                listaUI.MarcarSueldoComoRevelado(contrato.sueldo);
+            }
         }
     }
 }

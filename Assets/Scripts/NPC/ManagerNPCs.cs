@@ -6,6 +6,7 @@ using System.Linq;
 
 public class ManagerNPCs : MonoBehaviour
 {
+    public UIListaSueldos uiListaSueldos;
     public int cantidadEmpleosActivos = 10;
 
     [Header("Prefabs de NPC")]
@@ -24,12 +25,18 @@ public class ManagerNPCs : MonoBehaviour
     private List<JobData> contratosAsignados = new List<JobData>();
     private Dictionary<Transform, NPCInteractivo> npcPorPunto = new Dictionary<Transform, NPCInteractivo>();
 
+    private List<NPCInteractivo> npcs;
+
     void Start()
     {
         GenerarContratos();
         ColocarNPCsAleatorios();
         CrearBotonesContratos();
-        
+    }
+
+    void Awake()
+    {
+        npcs = new List<NPCInteractivo>(FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None));
     }
 
     void CrearBotonesContratos()
@@ -166,6 +173,52 @@ public class ManagerNPCs : MonoBehaviour
             if (i < npcs.Length) // Asegura que haya suficientes NPCs
             {
                 botonesContratos[i].AsignarNPC(npcs[i]); // ¡Vincula el botón al NPC!
+            }
+        }
+    }
+
+    public List<int> ObtenerSueldosGenerados()
+    {
+        return contratosAsignados.Select(c => c.sueldo).ToList();
+    }
+
+    public List<JobData> GetContratosAsignados()
+    {
+        return contratosAsignados;
+    }
+
+    public List<NPCInteractivo> GetNPCs()
+    {
+        return npcPorPunto.Values.ToList();
+    }
+
+    public void RestaurarContratosDesdeSave(List<JobDataSave> contratos)
+    {
+        contratosAsignados.Clear();
+        foreach (var c in contratos)
+        {
+            contratosAsignados.Add(new JobData
+            {
+                nombre = c.nombre,
+                sueldo = c.sueldo
+            });
+        }
+    }
+
+    public void RestaurarNPCsDesdeSave(List<NPCState> estadosNPCs)
+    {
+        // Limpia la lista para que no tenga referencias nulas
+        npcs = npcs.Where(n => n != null).ToList();
+
+        foreach (var estado in estadosNPCs)
+        {
+            var npc = npcs.Find(n => n.name == estado.npcName);
+            if (npc != null)
+            {
+                npc.gameObject.SetActive(estado.npcVisible);
+                npc.trabajoYaAsignado = estado.trabajoAsignado;
+                npc.transform.position = estado.posicionNPC;
+                npc.transform.rotation = Quaternion.Euler(estado.rotacionNPC);
             }
         }
     }

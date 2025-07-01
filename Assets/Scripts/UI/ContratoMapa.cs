@@ -7,7 +7,7 @@ public class ContratoMapa : MonoBehaviour
     private Button botonContrato;
     private NPCInteractivo npcAsignado;
 
-    [System.Obsolete]
+
     void Start()
     {
         botonContrato = GetComponent<Button>();
