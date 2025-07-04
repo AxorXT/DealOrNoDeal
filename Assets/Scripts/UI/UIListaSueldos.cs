@@ -19,19 +19,17 @@ public class UIListaSueldos : MonoBehaviour
 
     private Dictionary<int, GameObject> itemsSueldos = new();
     private bool jugadorActivo = true;
+    private List<int> sueldosReveladosGuardados = new List<int>();
 
     IEnumerator Start()
     {
         panelRect = panelSueldos.GetComponent<RectTransform>();
-
         posicionVisible = panelRect.anchoredPosition; // Posición normal visible
-        posicionInicial = posicionVisible + new Vector2(0, -Screen.height); // Fuera de pantalla abajo
-
-        panelRect.anchoredPosition = posicionInicial;
+        posicionInicial = posicionVisible + new Vector2(0, -Screen.height); // Fuera de pantalla abajo
+        panelRect.anchoredPosition = posicionInicial;
         panelSueldos.SetActive(false);
-
         yield return new WaitForSeconds(0.1f);
-
+        
         ManagerNPCs manager = FindFirstObjectByType<ManagerNPCs>();
         if (manager != null)
         {
@@ -43,17 +41,20 @@ public class UIListaSueldos : MonoBehaviour
             Debug.LogWarning("No se encontró ManagerNPCs en la escena.");
         }
     }
-
     void Update()
     {
         if (!jugadorActivo || animando) return;
-
+        
         if (Input.GetKeyDown(KeyCode.F))
         {
             if (panelSueldos.activeSelf)
-                StartCoroutine(AnimarPanel(false)); // Ocultar con animación
+            {
+                StartCoroutine(AnimarPanel(false));
+            }
             else
-                StartCoroutine(AnimarPanel(true));  // Mostrar con animación
+            {
+                StartCoroutine(AnimarPanel(true));
+            }
         }
     }
 
@@ -64,13 +65,25 @@ public class UIListaSueldos : MonoBehaviour
 
     void CrearListaConSueldos(List<int> sueldos)
     {
-        foreach (int sueldo in sueldos.OrderByDescending(s => s)) // Orden descendente opcional
+        // Limpiar hijos antes de crear
+        foreach (Transform child in contenedorSueldos)
+        {
+            Destroy(child.gameObject);
+        }
+
+        itemsSueldos.Clear();
+
+        foreach (int sueldo in sueldos.OrderByDescending(s => s))
         {
             GameObject item = Instantiate(sueldoItemPrefab, contenedorSueldos);
             item.GetComponentInChildren<TMP_Text>().text = "$" + sueldo;
             itemsSueldos[sueldo] = item;
         }
+
+        RestaurarSueldosRevelados(sueldosReveladosGuardados);
     }
+
+
 
     public void MarcarSueldoComoRevelado(int sueldo)
     {
@@ -85,14 +98,16 @@ public class UIListaSueldos : MonoBehaviour
     IEnumerator AnimarPanel(bool mostrar)
     {
         animando = true;
-
+        
         if (mostrar)
+        {
             panelSueldos.SetActive(true);
-
+        }
         Vector2 inicio = mostrar ? posicionInicial : posicionVisible;
         Vector2 destino = mostrar ? posicionVisible : posicionInicial;
-
+        
         float t = 0;
+        
         while (t < 1)
         {
             t += Time.deltaTime / duracionAnimacion;
@@ -101,11 +116,13 @@ public class UIListaSueldos : MonoBehaviour
         }
 
         if (!mostrar)
+        {
             panelSueldos.SetActive(false);
+        }
 
         animando = false;
     }
-
+    
     public List<int> ObtenerSueldosTachados()
     {
         List<int> tachados = new();
@@ -122,14 +139,13 @@ public class UIListaSueldos : MonoBehaviour
 
     public List<int> GetSueldosRevelados()
     {
-        return itemsSueldos
-            .Where(kv => kv.Value.GetComponentInChildren<TMP_Text>().fontStyle.HasFlag(FontStyles.Strikethrough))
-            .Select(kv => kv.Key)
-            .ToList();
+        return itemsSueldos.Where(kv => kv.Value.GetComponentInChildren<TMP_Text>().fontStyle.HasFlag(FontStyles.Strikethrough)).Select(kv => kv.Key).ToList();
     }
 
     public void RestaurarSueldosRevelados(List<int> sueldosRevelados)
     {
+        sueldosReveladosGuardados = new List<int>(sueldosRevelados);
+
         foreach (var sueldo in sueldosRevelados)
         {
             if (itemsSueldos.TryGetValue(sueldo, out GameObject item))

@@ -1,5 +1,7 @@
 using UnityEngine;
 using System.IO;
+using System.Linq;
+using static MainMenu;
 
 public class SaveSystem : MonoBehaviour
 {
@@ -7,8 +9,15 @@ public class SaveSystem : MonoBehaviour
 
     public static void GuardarEstado(GameState estado)
     {
+        if (estado == null)
+        {
+            Debug.LogWarning("Estado es null al intentar guardar.");
+            return;
+        }
+
         string json = JsonUtility.ToJson(estado, true);
         File.WriteAllText(filePath, json);
+        Debug.Log("Estado guardado exitosamente en: " + filePath);
     }
 
     public static GameState CargarEstado()
@@ -36,19 +45,23 @@ public class SaveSystem : MonoBehaviour
 
     public static GameState CrearGameStateActual()
     {
-        GameState estado = new GameState();
+        GameState estado = new GameState(); // Siempre crea uno limpio
 
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         Camera camaraJugador = Camera.main;
 
-        // Guarda jugador y cámara
-        estado.posicionJugador = player.transform.position;
-        estado.rotacionJugadorY = player.transform.eulerAngles.y;
+        if (player != null)
+        {
+            estado.posicionJugador = player.transform.position;
+            estado.rotacionJugador = player.transform.eulerAngles;
+        }
 
-        estado.posicionCamara = camaraJugador.transform.position;
-        estado.rotacionCamara = camaraJugador.transform.eulerAngles;
+        if (camaraJugador != null)
+        {
+            estado.posicionCamara = camaraJugador.transform.position;
+            estado.rotacionCamara = camaraJugador.transform.eulerAngles;
+        }
 
-        // Guarda contratos asignados
         ManagerNPCs manager = GameObject.FindAnyObjectByType<ManagerNPCs>();
         if (manager != null)
         {
@@ -61,28 +74,28 @@ public class SaveSystem : MonoBehaviour
                 });
             }
 
-            // Guarda estado NPCs
             foreach (var npc in manager.GetNPCs())
             {
+                if (npc == null) continue;
+
                 estado.estadosNPCs.Add(new NPCState
                 {
-                    npcName = npc.name,
+                    idUnico = npc.idUnico,
                     trabajoAsignado = npc.trabajoYaAsignado,
                     npcVisible = npc.gameObject.activeSelf,
                     posicionNPC = npc.transform.position,
-                    rotacionNPC = npc.transform.eulerAngles
+                    rotacionNPC = npc.transform.eulerAngles,
+                    indexPrefab = npc.indexPrefab
                 });
             }
         }
 
-        // Guarda sueldos revelados (desde UIListaSueldos o donde tengas ese estado)
         UIListaSueldos uiLista = GameObject.FindAnyObjectByType<UIListaSueldos>();
         if (uiLista != null)
         {
             estado.sueldosRevelados = uiLista.GetSueldosRevelados();
         }
 
-        // Estado general (por ejemplo, si hay diálogo activo)
         DialogueManager dialogueManager = GameObject.FindAnyObjectByType<DialogueManager>();
         if (dialogueManager != null)
         {
@@ -102,11 +115,10 @@ public class SaveSystem : MonoBehaviour
         UIListaSueldos uiLista = GameObject.FindAnyObjectByType<UIListaSueldos>();
         DialogueManager dialogueManager = GameObject.FindAnyObjectByType<DialogueManager>();
 
-        // Restaurar jugador y cámara
         if (player != null)
         {
             player.transform.position = estado.posicionJugador;
-            player.transform.rotation = Quaternion.Euler(0, estado.rotacionJugadorY, 0);
+            player.transform.rotation = Quaternion.Euler(estado.rotacionJugador);
         }
 
         if (camaraJugador != null)
@@ -115,23 +127,58 @@ public class SaveSystem : MonoBehaviour
             camaraJugador.transform.rotation = Quaternion.Euler(estado.rotacionCamara);
         }
 
-        // Restaurar contratos y NPCs
         if (manager != null)
         {
             manager.RestaurarContratosDesdeSave(estado.contratosAsignados);
             manager.RestaurarNPCsDesdeSave(estado.estadosNPCs);
         }
 
-        // Restaurar sueldos revelados en UI
         if (uiLista != null)
         {
             uiLista.RestaurarSueldosRevelados(estado.sueldosRevelados);
         }
 
-        // Restaurar estado de diálogo
         if (dialogueManager != null)
         {
             dialogueManager.SetDialogueActive(estado.juegoEnDialogoActivo);
         }
+
+        if (estado.mostrarDialogoSueldo && !string.IsNullOrEmpty(estado.npcActivoNombre))
+        {
+            Debug.Log("Reanudando diálogo pendiente con: " + estado.npcActivoNombre);
+
+            var npcs = Resources.FindObjectsOfTypeAll<NPCInteractivo>()
+                .Where(n => n.gameObject.scene.isLoaded);
+            NPCInteractivo npc = npcs.FirstOrDefault(n => n.idUnico == estado.npcActivoNombre);
+
+            if (npc != null && dialogueManager != null)
+            {
+                var secuencia = npc.trabajoYaAsignado && npc.segundoDialogo != null
+                    ? npc.segundoDialogo
+                    : CrearDialogoSueldo(npc);
+
+                dialogueManager.StartDialogue(secuencia, npc);
+            }
+            else
+            {
+                Debug.LogWarning("No se encontró el NPC o DialogueManager: " + estado.npcActivoNombre);
+            }
+        }
+
+        SaveFlags.estadoRestauradoDesdeArchivo = true;
+    }
+
+    private static DialogueSequence CrearDialogoSueldo(NPCInteractivo npc)
+    {
+        DialogueSequence seq = ScriptableObject.CreateInstance<DialogueSequence>();
+        seq.lines = new DialogueLine[]
+        {
+        new DialogueLine
+        {
+            speakerName = npc.name,
+            dialogueText = "Tu sueldo será de $" + npc.contratoAsignado.sueldo.ToString("N0")
+        }
+        };
+        return seq;
     }
 }

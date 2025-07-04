@@ -14,4 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   lines:
   - speakerName: PUNK
-    dialogueText: Hola tengo una chamba para ti
+    dialogueText: '"Este empleo paga $ {SUELDO}'

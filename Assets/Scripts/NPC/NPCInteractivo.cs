@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 public class NPCInteractivo : MonoBehaviour
 {
     public GameObject iconoE; // Prefab del ícono E (World Space UI)
-    private GameObject instanciaIcono;
+    private GameObject instanciaIcono;
     private Transform jugador;
     public float distanciaParaInteractuar = 3f;
 
@@ -16,7 +16,7 @@ public class NPCInteractivo : MonoBehaviour
     [Header("Altura del ícono E")]
     public float alturaIcono = 2.2f;
 
-    [Header("Diálogo")]
+   [Header("Diálogo")]
     public DialogueSequence secuenciaDeDialogo;
 
     private DialogueManager dialogueManager;
@@ -38,68 +38,32 @@ public class NPCInteractivo : MonoBehaviour
     [HideInInspector]
     public bool ocultarAlFinalizarDialogo = true;
 
+    public string idUnico;
+    public int indexPrefab;
+
     void Start()
     {
-    // 1. Buscar jugador si no está asignado
-    if (jugador == null)
-    {
-        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        if (playerObj != null) jugador = playerObj.transform;
-    }
+        // Obtener referencias necesarias
+        jugador = GameObject.FindGameObjectWithTag("Player")?.transform;
+        if (jugador != null)
+            playerMovement = jugador.GetComponent<PlayerMovement>();
 
-    // 2. Obtener componentes de forma segura
-    if (jugador != null)
-    {
-        playerMovement = jugador.GetComponent<PlayerMovement>();
-    }
-    else
-    {
-        Debug.LogError("No se encontró al jugador en la escena");
-    }
+        dialogueManager = FindAnyObjectByType<DialogueManager>();
+        camaraFollow = Camera.main?.GetComponent<CamaraFollow>();
 
-    // 3. Buscar DialogueManager si no está asignado
-    if (dialogueManager == null)
-    {
-        dialogueManager = Object.FindFirstObjectByType<DialogueManager>();
+        if (iconoE != null)
+        {
+            instanciaIcono = Instantiate(iconoE, transform.position + Vector3.up * alturaIcono, Quaternion.identity, transform);
+            instanciaIcono.SetActive(false);
+        }
     }
-
-    // 4. Buscar cámara si no está asignada
-    if (camaraFollow == null && Camera.main != null)
-    {
-        camaraFollow = Camera.main.GetComponent<CamaraFollow>();
-    }
-
-    // 5. Crear ícono "E" solo si existe el prefab
-    if (iconoE != null)
-    {
-        Vector3 posicionIcono = transform.position + Vector3.up * alturaIcono;
-        instanciaIcono = Instantiate(iconoE, posicionIcono, Quaternion.identity, transform);
-        instanciaIcono.SetActive(false);
-    }
-    else
-    {
-        Debug.LogWarning("Prefab del ícono E no asignado en NPC: " + gameObject.name);
-    }
-}
 
     void Update()
     {
-        if (jugador == null)
-        {
-            GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-            if (playerObj != null)
-            {
-                jugador = playerObj.transform;
-                playerMovement = jugador.GetComponent<PlayerMovement>();
-            }
-            else
-            {
-                return;
-            }
-        }
+        if (jugador == null) return;
 
         float distancia = Vector3.Distance(jugador.position, transform.position);
-        jugadorCerca = distancia <= distanciaParaInteractuar;
+        bool jugadorCerca = distancia <= distanciaParaInteractuar;
 
         if (instanciaIcono != null)
         {
@@ -126,13 +90,9 @@ public class NPCInteractivo : MonoBehaviour
         if (dialogueManager != null)
         {
             if (trabajoYaAsignado && segundoDialogo != null)
-            {
                 dialogueManager.StartDialogue(segundoDialogo, this);
-            }
-            else if (secuenciaDeDialogo != null)
-            {
+            else
                 dialogueManager.StartDialogue(secuenciaDeDialogo, this);
-            }
         }
     }
 
@@ -142,21 +102,46 @@ public class NPCInteractivo : MonoBehaviour
         if (camaraFollow != null) camaraFollow.ClearFocus();
 
         if (ocultarAlFinalizarDialogo)
-            gameObject.SetActive(false);
-    }
-
-    internal NPCInteractivo FirstOrDefault(System.Func<object, bool> value)
-    {
-        throw new System.NotImplementedException();
+            gameObject.SetActive(true);
     }
 
     public void AceptarTrabajoDesdeDialogo()
     {
-        GameState estado = SaveSystem.CargarEstado() ?? new GameState();
-        estado.npcActivoNombre = this.name; // Asegúrate de que cada NPC tenga un nombre único
+        // 1. Marcar que este NPC ya fue asignado
+        trabajoYaAsignado = true;
+
+        // 2. Actualizar datos relevantes en GameState
+        GameState estado = SaveSystem.CrearGameStateActual(); // Snapshot completo
+
+        estado.npcActivoNombre = idUnico; // Usa el ID único, no el nombre del GameObject
         estado.mostrarDialogoSueldo = true;
+
+        // 3. Verificar si este NPC ya tiene estado previo
+        NPCState npcState = estado.estadosNPCs.Find(n => n.idUnico == idUnico);
+        if (npcState != null)
+        {
+            npcState.trabajoAsignado = true;
+            npcState.npcVisible = true;
+            npcState.posicionNPC = transform.position;
+            npcState.rotacionNPC = transform.eulerAngles;
+        }
+        else
+        {
+            estado.estadosNPCs.Add(new NPCState
+            {
+                idUnico = idUnico,
+                trabajoAsignado = true,
+                npcVisible = true,
+                posicionNPC = transform.position,
+                rotacionNPC = transform.eulerAngles,
+                indexPrefab = indexPrefab
+            });
+        }
+
+        // 4. Guardar el estado completo
         SaveSystem.GuardarEstado(estado);
 
-        SceneManager.LoadScene("JUEGO"); // Cambiar por el nombre real de tu escena
+        // 5. Cambiar de escena
+        SceneManager.LoadScene("SimulacionMinijuego");
     }
 }

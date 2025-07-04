@@ -14,14 +14,18 @@ public class DialogueManager : MonoBehaviour
     private bool isDialogueActive = false;
 
     public GameObject decisionPanel; // Contenedor de botones (sí/no)
-    public Button botonAceptar;
+    public Button botonAceptar;
     public Button botonRechazar;
+    public Button botonCerrar;
 
     private UIListaSueldos uiListaSueldos;
 
     void Start()
     {
-        decisionPanel.SetActive(false);
+        if (decisionPanel != null) decisionPanel.SetActive(false);
+        if (dialoguePanel != null) dialoguePanel.SetActive(false);
+        if (botonCerrar != null) botonCerrar.gameObject.SetActive(false);
+
         uiListaSueldos = FindAnyObjectByType<UIListaSueldos>();
     }
 
@@ -39,24 +43,27 @@ public class DialogueManager : MonoBehaviour
             dialogueLines.Enqueue(line);
         }
 
-        // Mostrar la primera línea (intro) y luego botones
-        DisplayNextLine();
+        // Mostrar la primera línea (intro) y luego botones
+        DisplayNextLine();
 
         if (npcActual.mostrarDecisionInicial)
         {
             decisionPanel.SetActive(true);
+            botonCerrar.gameObject.SetActive(false);
             botonAceptar.onClick.RemoveAllListeners();
             botonRechazar.onClick.RemoveAllListeners();
 
-            botonAceptar.onClick.AddListener(() => {
+            botonAceptar.onClick.AddListener(() =>
+            {
                 decisionPanel.SetActive(false);
                 if (npcActual != null)
-                    npcActual.ocultarAlFinalizarDialogo = true;
-                SaveSystem.GuardarEstado(SaveSystem.CrearGameStateActual());
-                UnityEngine.SceneManagement.SceneManager.LoadScene("SimulacionMinijuego");
+                {
+                    npcActual.AceptarTrabajoDesdeDialogo();
+                }
             });
 
-            botonRechazar.onClick.AddListener(() => {
+            botonRechazar.onClick.AddListener(() =>
+            {
                 decisionPanel.SetActive(false);
                 dialoguePanel.SetActive(false);
                 isDialogueActive = false;
@@ -66,6 +73,28 @@ public class DialogueManager : MonoBehaviour
                 npcActual.FinalizarConversacion(false);
                 npcActual = null;
             });
+        }
+        else if (npcActual.trabajoYaAsignado)
+        {
+            // Estamos en segundo diálogo: ocultar aceptar/rechazar, mostrar solo cerrar
+            decisionPanel.SetActive(true);
+            botonAceptar.gameObject.SetActive(false);
+            botonRechazar.gameObject.SetActive(false);
+            botonCerrar.gameObject.SetActive(true);
+
+            botonCerrar.onClick.RemoveAllListeners();
+            botonCerrar.onClick.AddListener(() =>
+            {
+                // Aquí llamamos a la función para cerrar el diálogo y reactivar todo
+                // Necesitas exponer esta función en DialogueManager o llamar a MainMenu (puede inyectarse o usarse singleton)
+                CerrarDialogoManual();
+            });
+        }
+        else
+        {
+            // Por defecto, ocultar todo
+            decisionPanel.SetActive(false);
+            botonCerrar.gameObject.SetActive(false);
         }
 
         Cursor.visible = true;
@@ -104,11 +133,7 @@ public class DialogueManager : MonoBehaviour
             if (npcActual.trabajoYaAsignado)
             {
                 npcActual.gameObject.SetActive(false);
-
-                if (uiListaSueldos != null && npcActual.contratoAsignado != null)
-                {
-                    uiListaSueldos.MarcarSueldoComoRevelado(npcActual.contratoAsignado.sueldo);
-                }
+                uiListaSueldos?.MarcarSueldoComoRevelado(npcActual.contratoAsignado?.sueldo ?? 0);
             }
 
             npcActual.FinalizarConversacion();
@@ -116,14 +141,37 @@ public class DialogueManager : MonoBehaviour
         }
     }
 
-    public bool IsDialogueActive()
-    {
-        return isDialogueActive;
-    }
+    public bool IsDialogueActive() => isDialogueActive;
 
     public void SetDialogueActive(bool estado)
     {
         isDialogueActive = estado;
         dialoguePanel.SetActive(estado);
+    }
+
+    public void CerrarDialogoManual()
+    {
+        if (npcActual != null)
+        {
+            if (npcActual != null)
+            {
+                PlayerMovement pm = npcActual.GetComponentInParent<PlayerMovement>();
+                if (pm != null) pm.enabled = true;
+
+                CamaraFollow camFollow = Camera.main?.GetComponent<CamaraFollow>();
+                if (camFollow != null)
+                {
+                    camFollow.ClearFocus();
+                    camFollow.enabled = true;
+                }
+
+                SetDialogueActive(false);
+
+                uiListaSueldos?.MarcarSueldoComoRevelado(npcActual.contratoAsignado?.sueldo ?? 0);
+            }
+
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
     }
 }

@@ -7,64 +7,93 @@ using UnityEngine.UI;
 
 public class MainMenu : MonoBehaviour
 {
-    public GameObject panelMenu;       // Arrastra el Panel_Menu aquí en el Inspector
-    public GameObject panelOpciones;
+    public GameObject panelMenu;       // Arrastra el Panel_Menu aquí en el Inspector
+    public GameObject panelOpciones;
     public GameObject BotonMapaBack;
-    public GameObject player;         // Arrastra el GameObject del jugador
-    public GameObject mapContractsUI; // Panel con los botones de contratos
-    public CameraManager cameraManager; // Referencia al script CameraManager
+    public GameObject player;         // Arrastra el GameObject del jugador
+    public GameObject mapContractsUI; // Panel con los botones de contratos
+    public CameraManager cameraManager; // Referencia al script CameraManager
 
-    void Start()
+    void Start()
+    {
+        StartCoroutine(FlujoInicial());
+    }
+
+    IEnumerator FlujoInicial()
     {
         Debug.Log("Ruta de guardado: " + Application.persistentDataPath);
 
         GameState estadoGuardado = SaveSystem.CargarEstado();
+        ManagerNPCs manager = FindFirstObjectByType<ManagerNPCs>();
 
         if (estadoGuardado != null)
         {
-            // Restaurar el estado desde el JSON
+
+            // Esperar hasta que los NPCs existan en la escena
+            yield return new WaitUntil(() => FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None).Length > 0);
+
             SaveSystem.RestaurarDesdeGameState(estadoGuardado);
 
-            // Aplicar visibilidad y posición de NPCs según el estado guardado
-            AplicarEstadoNPCs(estadoGuardado);
+            if (manager != null)
+            {
+                manager.RestaurarNPCsDesdeSave(estadoGuardado.estadosNPCs);
+            }
 
-            // Ocultar menús
             panelMenu.SetActive(false);
             panelOpciones.SetActive(false);
-            BotonMapaBack.SetActive(true);
-            mapContractsUI.SetActive(true);
-
+            BotonMapaBack.SetActive(false);
+            mapContractsUI.SetActive(false);
             player.SetActive(true);
 
-            // Transición de cámara desde estado guardado
             if (cameraManager != null)
             {
-                cameraManager.RestaurarPosicionDesdeGuardado();
-                cameraManager.TransitionToPlayer();
+                if (!SaveFlags.estadoRestauradoDesdeArchivo)
+                {
+                    cameraManager.RestaurarPosicionDesdeGuardado(); // O ConfigurarVistaInicial()
+                }
+
+                cameraManager.TransitionToPlayer(); // Esto sí lo puedes dejar
+            }
+
+            if (estadoGuardado.mostrarDialogoSueldo && !string.IsNullOrEmpty(estadoGuardado.npcActivoNombre))
+            {
+                cameraManager.permitirControlCamara = false; //Desactiva transición automática
+
+                NPCInteractivo npc = BuscarNPCPorNombre(estadoGuardado.npcActivoNombre);
+                if (npc != null)
+                    yield return StartCoroutine(MostrarDialogoSueldo(npc));
+            }
+            else
+            {
+                if (cameraManager != null)
+                {
+                    cameraManager.RestaurarPosicionDesdeGuardado();
+                    cameraManager.TransitionToPlayer();
+                }
             }
 
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
             Time.timeScale = 1f;
-
-            return;
+            
         }
-
-        // Si no hay partida guardada: mostrar menú principal
-        Time.timeScale = 0f;
-        panelMenu.SetActive(true);
-        panelOpciones.SetActive(false);
-        BotonMapaBack.SetActive(false);
-        mapContractsUI.SetActive(false);
-        player.SetActive(true); // O desactívalo si quieres mostrarlo después
-
-        if (cameraManager != null)
+        else
         {
-            cameraManager.ConfigurarVistaInicial(); // Vista aérea
-        }
+            Time.timeScale = 0f;
+            panelMenu.SetActive(true);
+            panelOpciones.SetActive(false);
+            BotonMapaBack.SetActive(false);
+            mapContractsUI.SetActive(false);
+            player.SetActive(true);
 
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+            if (cameraManager != null)
+            {
+                cameraManager.ConfigurarVistaInicial();
+            }
+
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
     }
 
 
@@ -74,10 +103,27 @@ public class MainMenu : MonoBehaviour
         mapContractsUI.SetActive(true);
         BotonMapaBack.SetActive(true);
 
-        // Asegurarse que la cámara está en vista aérea
+        GameState estadoGuardado = SaveSystem.CargarEstado();
+        ManagerNPCs manager = FindAnyObjectByType<ManagerNPCs>();
+
+        if (estadoGuardado != null)
+        {
+            SaveSystem.RestaurarDesdeGameState(estadoGuardado);
+        }
+        else
+        {
+            if (manager != null)
+            {
+                manager.InicializarEscena(); // Solo si no hay guardado
+            }
+        }
+
         if (cameraManager != null)
         {
-            cameraManager.ConfigurarVistaInicial();
+            if (!SaveFlags.estadoRestauradoDesdeArchivo)
+            {
+                cameraManager.ConfigurarVistaInicial();
+            }
         }
     }
 
@@ -95,15 +141,15 @@ public class MainMenu : MonoBehaviour
         }
 
         Time.timeScale = 1f; // Reanuda el juego cuando empieza a jugar
-    }
+    }
 
     public void OnOptionsPressed()
     {
         panelOpciones.SetActive(true);
         panelMenu.SetActive(false);
         Debug.Log("Abrir opciones...");
-        // Implementa lógica de opciones aquí
-    }
+        // Implementa lógica de opciones aquí
+    }
 
     public void OnBackButton()
     {
@@ -117,67 +163,60 @@ public class MainMenu : MonoBehaviour
     {
         Application.Quit();
 #if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
+        UnityEditor.EditorApplication.isPlaying = false;
 #endif
-    }
+    }
 
     NPCInteractivo BuscarNPCPorNombre(string nombre)
     {
-        return FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None).FirstOrDefault(n => n.name == nombre);
+        return FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None)
+        .FirstOrDefault(n => n.idUnico == nombre || n.name == nombre);
     }
 
     IEnumerator MostrarDialogoSueldo(NPCInteractivo npc)
     {
-        // Evitar que desaparezca el NPC cuando se cierre este diálogo
         npc.ocultarAlFinalizarDialogo = false;
-
         player.GetComponent<PlayerMovement>().enabled = false;
 
-        // Opcional: detener CamaraFollow si está activa
         CamaraFollow follow = Camera.main.GetComponent<CamaraFollow>();
-        if (follow != null) follow.enabled = false;
-
-        // Posicionar cámara detrás del jugador mirando al NPC
-        Camera.main.transform.position = npc.transform.position + new Vector3(0, 2.5f, -3);
-        Camera.main.transform.LookAt(npc.transform.position + Vector3.up * 1.5f);
+        if (follow != null)
+        {
+            follow.SetFocus(npc.transform); // Usar el sistema de foco
+            follow.enabled = true;
+        }
 
         yield return new WaitForSeconds(0.4f);
 
         DialogueManager dialogueManager = FindAnyObjectByType<DialogueManager>();
-        dialogueManager.StartDialogue(CrearDialogoSueldo(npc), npc);
 
-        // Espera a que el jugador cierre el diálogo
+        //Elegir el segundo diálogo si el trabajo ya fue aceptado
+        if (npc.trabajoYaAsignado && npc.segundoDialogo != null)
+        {
+            dialogueManager.StartDialogue(npc.segundoDialogo, npc);
+        }
+        else
+        {
+            dialogueManager.StartDialogue(CrearDialogoSueldo(npc), npc);
+        }
+
         yield return new WaitUntil(() => !dialogueManager.IsDialogueActive());
 
-        // Activar movimiento nuevamente
         player.GetComponent<PlayerMovement>().enabled = true;
-        if (follow != null) follow.enabled = true;
+        if (follow != null)
+        {
+            follow.ClearFocus();
 
-        // Limpiar estado
+            if (cameraManager != null && cameraManager.permitirControlCamara)
+                follow.enabled = true;
+            else
+                follow.enabled = false;
+        }
+
+        //Limpiar estado para no repetir el diálogo
         GameState estado = SaveSystem.CargarEstado();
         estado.mostrarDialogoSueldo = false;
         estado.npcActivoNombre = null;
         SaveSystem.GuardarEstado(estado);
-    }
-
-    void AplicarEstadoNPCs(GameState estadoGuardado)
-    {
-        if (estadoGuardado == null || estadoGuardado.estadosNPCs == null) return;
-
-        NPCInteractivo[] npcsEnEscena = FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None);
-
-        foreach (var npcEstado in estadoGuardado.estadosNPCs)
-        {
-            var npc = System.Array.Find(npcsEnEscena, n => n.name == npcEstado.npcName);
-            if (npc != null)
-            {
-                npc.gameObject.SetActive(npcEstado.npcVisible);
-
-                // Opcional: actualizar posición y rotación
-                npc.transform.position = npcEstado.posicionNPC;
-                npc.transform.rotation = Quaternion.Euler(npcEstado.rotacionNPC);
-            }
-        }
     }
 
     private DialogueSequence CrearDialogoSueldo(NPCInteractivo npc)
@@ -185,12 +224,16 @@ public class MainMenu : MonoBehaviour
         DialogueSequence seq = ScriptableObject.CreateInstance<DialogueSequence>();
         seq.lines = new DialogueLine[]
         {
-        new DialogueLine
-        {
-            speakerName = npc.name,
-            dialogueText = "Tu sueldo será de $" + npc.contratoAsignado.sueldo.ToString("N0")
-        }
+            new DialogueLine
+            {
+                speakerName = npc.name, dialogueText = "Tu sueldo será de $" + npc.contratoAsignado.sueldo.ToString("N0")
+            }
         };
         return seq;
+    }
+
+    public static class SaveFlags
+    {
+        public static bool estadoRestauradoDesdeArchivo = false;
     }
 }

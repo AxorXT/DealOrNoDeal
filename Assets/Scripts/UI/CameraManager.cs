@@ -10,6 +10,8 @@ public class CameraManager : MonoBehaviour
     private CamaraFollow camaraFollow;
     private bool enTransicion = false;
 
+    public bool permitirControlCamara = true;
+
     void Start()
     {
         camaraFollow = GetComponent<CamaraFollow>();
@@ -31,7 +33,7 @@ public class CameraManager : MonoBehaviour
 
     public void TransitionToPlayer()
     {
-        if (!enTransicion)
+        if (!enTransicion && permitirControlCamara)
         {
             StartCoroutine(Transicion());
         }
