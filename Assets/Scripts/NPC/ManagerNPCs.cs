@@ -41,6 +41,7 @@ public class ManagerNPCs : MonoBehaviour
 
         contratosAsignados.Clear();
         npcPorPunto.Clear();
+
         npcs = FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None).ToList();
 
         GenerarContratos();
@@ -50,17 +51,13 @@ public class ManagerNPCs : MonoBehaviour
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
-        {
+        if (Instance == null)
+            Instance = this;
+        else
             Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-        npcs = new List<NPCInteractivo>(FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None));
     }
 
-    void CrearBotonesContratos()
+    public void CrearBotonesContratos()
     {
         foreach (var kvp in npcPorPunto)
         {
@@ -113,37 +110,38 @@ public class ManagerNPCs : MonoBehaviour
             {
                 GameObject prefabElegido = npcConContratoPrefabs[UnityEngine.Random.Range(0, npcConContratoPrefabs.Count)];
 
-                // Usa la rotación del punto
-                GameObject npc = Instantiate(prefabElegido, punto.position, punto.rotation);
+                string idUnico = "Contrato_" + contador;
 
-                //Asignar contrato al NPCInteractivo
-                var npcScript = npc.GetComponent<NPCInteractivo>();
+                NPCInteractivo npcScript = InstanciarNPCPersistente(prefabElegido, punto, idUnico);
+
                 if (npcScript != null)
                 {
                     npcScript.contratoAsignado = contratosAsignados[i];
-                    npcScript.idUnico = "Contrato_" + contador; // << ID único real
-
-                    prefabPorId[npcScript.idUnico] = prefabElegido;
+                    prefabPorId[idUnico] = prefabElegido;
                     contador++;
 
                     npcPorPunto[punto] = npcScript;
-                }
 
-                var npcEmpleo = npc.GetComponent<NPCEmpleo>();
-                if (npcEmpleo != null)
-                {
-                    npcEmpleo.AsignarContrato(contratosAsignados[i]);
+                    NPCEmpleo npcEmpleo = npcScript.GetComponent<NPCEmpleo>();
+                    if (npcEmpleo != null)
+                    {
+                        npcEmpleo.AsignarContrato(contratosAsignados[i]);
+                    }
                 }
             }
         }
 
+        // NPCs decorativos (puedes también usar InstanciarNPCPersistente si quieres persistencia)
         for (int i = contratosAsignados.Count; i < puntosAleatorios.Count; i++)
         {
             Transform punto = puntosAleatorios[i];
             if (!npcPorPunto.ContainsKey(punto))
             {
                 GameObject prefabElegido = npcDecorativoPrefab[UnityEngine.Random.Range(0, npcDecorativoPrefab.Count)];
-                Instantiate(prefabElegido, punto.position, punto.rotation);
+                GameObject decorativoGO = Instantiate(prefabElegido, punto.position, punto.rotation);
+                // Si quieres que los NPC decorativos también sean persistentes:
+                GameManager.Instance.npcGameObjects.Add(decorativoGO);
+                GameManager.Instance.DontDestroyOnLoadSafe(decorativoGO);
             }
         }
     }
@@ -239,39 +237,52 @@ public class ManagerNPCs : MonoBehaviour
 
     public void RestaurarNPCsDesdeSave(List<NPCState> estadosNPCs)
     {
-        if (estadosNPCs.Count > 0)
+        if (estadosNPCs == null || estadosNPCs.Count == 0)
         {
-            int maxId = estadosNPCs
-                .Select(e => {
-                    int num;
-                    return int.TryParse(e.idUnico.Replace("Contrato_", ""), out num) ? num : -1;
-                })
-                .Max();
-
-            contador = Mathf.Max(contador, maxId + 1);
+            Debug.LogWarning("[ManagerNPCs] No hay estados NPCs para restaurar.");
+            return;
         }
 
-        npcs = FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None).ToList();
+        // Actualizar contador basado en el mayor id numérico encontrado
+        int maxId = estadosNPCs
+            .Select(e => {
+                if (int.TryParse(e.idUnico.Replace("Contrato_", ""), out int num))
+                    return num;
+                else
+                    return -1;
+            })
+            .Max();
+
+        contador = Mathf.Max(contador, maxId + 1);
+
+        // Obtener NPCs actuales en escena
+        List<NPCInteractivo> npcs = FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None).ToList();
 
         var idsGuardados = estadosNPCs.Select(e => e.idUnico).ToHashSet();
 
-        // Desactivar NPCs que no estén en el guardado
+        // Desactivar NPCs no presentes en el guardado
         foreach (var npc in npcs)
         {
             if (!idsGuardados.Contains(npc.idUnico))
             {
                 npc.gameObject.SetActive(false);
-                // o Destroy(npc.gameObject);
             }
         }
 
+        if (npcConContratoPrefabs == null || npcConContratoPrefabs.Count == 0)
+        {
+            Debug.LogWarning("[ManagerNPCs] Lista de prefabs npcConContratoPrefabs vacía o nula.");
+            return;
+        }
+
+        // Restaurar o crear NPCs según el estado guardado
         foreach (var estado in estadosNPCs)
         {
-            // Buscar si el NPC ya existe en escena
             NPCInteractivo npc = npcs.Find(n => n != null && n.idUnico == estado.idUnico);
 
             if (npc != null)
             {
+                // Restaurar estado NPC existente
                 npc.gameObject.SetActive(estado.npcVisible);
                 npc.trabajoYaAsignado = estado.trabajoAsignado;
                 npc.transform.position = estado.posicionNPC;
@@ -280,10 +291,11 @@ public class ManagerNPCs : MonoBehaviour
             }
             else
             {
-                // Si no existe, instanciar el prefab según el índice guardado
+                // Crear nuevo NPC si índice es válido
                 if (estado.indexPrefab >= 0 && estado.indexPrefab < npcConContratoPrefabs.Count)
                 {
                     GameObject prefab = npcConContratoPrefabs[estado.indexPrefab];
+
                     if (prefab != null)
                     {
                         GameObject nuevoNPC = Instantiate(prefab, estado.posicionNPC, Quaternion.Euler(estado.rotacionNPC));
@@ -299,7 +311,8 @@ public class ManagerNPCs : MonoBehaviour
                         }
                         else
                         {
-                            Debug.LogWarning($"El prefab en índice {estado.indexPrefab} no tiene NPCInteractivo.");
+                            Debug.LogWarning($"El prefab en índice {estado.indexPrefab} no tiene componente NPCInteractivo.");
+                            Destroy(nuevoNPC); // Destruir para evitar objetos sin script
                         }
                     }
                     else
@@ -313,16 +326,35 @@ public class ManagerNPCs : MonoBehaviour
                 }
             }
         }
+        foreach (var npc in FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None))
+        {
+            if (npc.trabajoYaAsignado)
+            {
+                npc.IniciarDialogoAutomatico();
+                break; // Solo uno, o puedes decidir cuántos iniciar
+            }
+        }
     }
 
-    void InstanciarNPC(GameObject prefab, Vector3 posicion)
+    private NPCInteractivo InstanciarNPCPersistente(GameObject prefab, Transform punto, string idUnico)
     {
-        GameObject npcGO = Instantiate(prefab, posicion, Quaternion.identity);
+        GameObject npcGO = Instantiate(prefab, punto.position, punto.rotation);
+        npcGO.name = idUnico;
+
         NPCInteractivo npc = npcGO.GetComponent<NPCInteractivo>();
         if (npc != null)
         {
-            npc.idUnico = prefab.name + "_" + contador;
-            contador++;
+            npc.idUnico = idUnico;
+            npc.indexPrefab = npcConContratoPrefabs.IndexOf(prefab); // o ajusta según lista
+
+            // Registrar en GameManager para persistencia
+            if (!GameManager.Instance.npcGameObjects.Contains(npcGO))
+            {
+                GameManager.Instance.npcGameObjects.Add(npcGO);
+                GameManager.Instance.DontDestroyOnLoadSafe(npcGO);
+            }
         }
+
+        return npc;
     }
 }

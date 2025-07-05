@@ -41,6 +41,13 @@ public class NPCInteractivo : MonoBehaviour
     public string idUnico;
     public int indexPrefab;
 
+    void Awake()
+    {
+        // Busca el root
+        GameObject root = gameObject.transform.root.gameObject;
+        DontDestroyOnLoad(root);
+    }
+
     void Start()
     {
         // Obtener referencias necesarias
@@ -143,5 +150,28 @@ public class NPCInteractivo : MonoBehaviour
 
         // 5. Cambiar de escena
         SceneManager.LoadScene("SimulacionMinijuego");
+    }
+
+    public void IniciarDialogoAutomatico()
+    {
+        if (playerMovement == null)
+            playerMovement = GameObject.FindGameObjectWithTag("Player")?.GetComponent<PlayerMovement>();
+
+        if (camaraFollow == null)
+            camaraFollow = Camera.main?.GetComponent<CamaraFollow>();
+
+        if (playerMovement != null) playerMovement.enabled = false;
+        if (camaraFollow != null) camaraFollow.SetFocus(transform);
+
+        if (dialogueManager == null)
+            dialogueManager = FindAnyObjectByType<DialogueManager>();
+
+        if (dialogueManager != null)
+        {
+            if (trabajoYaAsignado && segundoDialogo != null)
+                dialogueManager.StartDialogue(segundoDialogo, this);
+            else
+                dialogueManager.StartDialogue(secuenciaDeDialogo, this);
+        }
     }
 }

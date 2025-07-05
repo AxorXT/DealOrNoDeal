@@ -5,13 +5,44 @@ using static MainMenu;
 
 public class SaveSystem : MonoBehaviour
 {
+    private bool hayCambiosParaGuardar = false;
+    public static SaveSystem Instance { get; private set; }
     private static string filePath => Application.persistentDataPath + "/gamestate.json";
+
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        DontDestroyOnLoad(gameObject);
+    }
+
+    public void MarcarCambio()
+    {
+        hayCambiosParaGuardar = true;
+    }
+
+    public void GuardarEstadoActual()
+    {
+        if (!hayCambiosParaGuardar)
+        {
+            Debug.Log("No hay cambios para guardar, se omite guardado.");
+            return;
+        }
+
+        GameState estado = CrearGameStateActual();
+        GuardarEstado(estado);
+        hayCambiosParaGuardar = false;
+    }
 
     public static void GuardarEstado(GameState estado)
     {
         if (estado == null)
         {
-            Debug.LogWarning("Estado es null al intentar guardar.");
+            Debug.LogWarning("Intento de guardar un estado inválido o vacío.");
             return;
         }
 
@@ -45,7 +76,7 @@ public class SaveSystem : MonoBehaviour
 
     public static GameState CrearGameStateActual()
     {
-        GameState estado = new GameState(); // Siempre crea uno limpio
+        GameState estado = new GameState();
 
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         Camera camaraJugador = Camera.main;
@@ -109,59 +140,50 @@ public class SaveSystem : MonoBehaviour
     {
         if (estado == null) return;
 
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        Camera camaraJugador = Camera.main;
-        ManagerNPCs manager = GameObject.FindAnyObjectByType<ManagerNPCs>();
-        UIListaSueldos uiLista = GameObject.FindAnyObjectByType<UIListaSueldos>();
-        DialogueManager dialogueManager = GameObject.FindAnyObjectByType<DialogueManager>();
+        var player = GameObject.FindGameObjectWithTag("Player");
+        var camaraJugador = Camera.main;
+        var manager = GameObject.FindAnyObjectByType<ManagerNPCs>();
+        var uiLista = GameObject.FindAnyObjectByType<UIListaSueldos>();
+        var dialogueManager = GameObject.FindAnyObjectByType<DialogueManager>();
 
+        // Restaurar posición del jugador
         if (player != null)
         {
             player.transform.position = estado.posicionJugador;
             player.transform.rotation = Quaternion.Euler(estado.rotacionJugador);
         }
 
+        // Restaurar posición de cámara
         if (camaraJugador != null)
         {
             camaraJugador.transform.position = estado.posicionCamara;
             camaraJugador.transform.rotation = Quaternion.Euler(estado.rotacionCamara);
         }
 
+        // Restaurar estado de NPCs y contratos
         if (manager != null)
         {
             manager.RestaurarContratosDesdeSave(estado.contratosAsignados);
             manager.RestaurarNPCsDesdeSave(estado.estadosNPCs);
         }
 
+        // Restaurar sueldos mostrados en UI
         if (uiLista != null)
         {
             uiLista.RestaurarSueldosRevelados(estado.sueldosRevelados);
         }
 
-        if (dialogueManager != null)
+        // Restaurar estado del diálogo
+        if (dialogueManager != null && estado.mostrarDialogoSueldo && !string.IsNullOrEmpty(estado.npcActivoNombre))
         {
-            dialogueManager.SetDialogueActive(estado.juegoEnDialogoActivo);
-        }
-
-        if (estado.mostrarDialogoSueldo && !string.IsNullOrEmpty(estado.npcActivoNombre))
-        {
-            Debug.Log("Reanudando diálogo pendiente con: " + estado.npcActivoNombre);
-
-            var npcs = Resources.FindObjectsOfTypeAll<NPCInteractivo>()
-                .Where(n => n.gameObject.scene.isLoaded);
-            NPCInteractivo npc = npcs.FirstOrDefault(n => n.idUnico == estado.npcActivoNombre);
-
-            if (npc != null && dialogueManager != null)
+            NPCInteractivo npc = manager.GetNPCs().FirstOrDefault(n => n.idUnico == estado.npcActivoNombre);
+            if (npc != null)
             {
-                var secuencia = npc.trabajoYaAsignado && npc.segundoDialogo != null
+                var dialogo = npc.trabajoYaAsignado && npc.segundoDialogo != null
                     ? npc.segundoDialogo
                     : CrearDialogoSueldo(npc);
 
-                dialogueManager.StartDialogue(secuencia, npc);
-            }
-            else
-            {
-                Debug.LogWarning("No se encontró el NPC o DialogueManager: " + estado.npcActivoNombre);
+                dialogueManager.StartDialogue(dialogo, npc);
             }
         }
 

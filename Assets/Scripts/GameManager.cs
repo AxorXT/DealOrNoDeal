@@ -7,6 +7,11 @@ using UnityEngine.SceneManagement;
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance;
+
+    public GameObject playerGameObject;
+    public GameObject cameraGameObject;
+    public List<GameObject> npcGameObjects = new List<GameObject>();
+
     public JobData ContratoSeleccionado { get; set; }
 
     private bool estadoRestaurado = false;
@@ -16,10 +21,16 @@ public class GameManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(this.gameObject);
+            // Este GameObject (GameManager) es raíz? Si no, tomar root para DontDestroyOnLoad
+            if (this.transform.parent == null)
+                DontDestroyOnLoad(this.gameObject);
+            else
+                DontDestroyOnLoad(this.transform.root.gameObject);
+
+            // No asignar player ni cámara aquí porque no están cargados todavía
 
             SceneManager.sceneLoaded += OnSceneLoaded;
-            SceneManager.sceneUnloaded += OnSceneUnloaded;
+            SceneManager.activeSceneChanged += OnActiveSceneChanged;
         }
         else
         {
@@ -30,41 +41,127 @@ public class GameManager : MonoBehaviour
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
-        SceneManager.sceneUnloaded -= OnSceneUnloaded;
+        SceneManager.activeSceneChanged -= OnActiveSceneChanged;
     }
 
-    private void OnSceneUnloaded(Scene current)
+    private void OnActiveSceneChanged(Scene previousScene, Scene newScene)
     {
-        if (GameObject.FindGameObjectWithTag("Player") != null)
+        if (previousScene.name == "JUEGO") // Solo guardar si sales del mapa
         {
-            GuardarEstadoAutomatico();
-        }
-        else
-        {
-            Debug.LogWarning("Jugador no estaba presente al salir de la escena. No se guardó.");
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+
+            if (player != null)
+            {
+                SaveSystem.Instance.GuardarEstadoActual();
+                Debug.Log("Estado guardado correctamente al salir del mapa.");
+            }
+            else
+            {
+                Debug.LogWarning("Jugador no estaba presente al salir del mapa.");
+            }
         }
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (estadoRestaurado) return;
-
-        GameState estado = SaveSystem.CargarEstado();
-        if (estado != null)
+        if (scene.name == "JUEGO")
         {
-            SaveSystem.RestaurarDesdeGameState(estado);
+            // --- PLAYER ---
+            GameObject[] players = GameObject.FindGameObjectsWithTag("Player");
+            foreach (var p in players)
+            {
+                if (playerGameObject == null)
+                {
+                    playerGameObject = p;
+                    DontDestroyOnLoadSafe(playerGameObject);
+                }
+                else if (p != playerGameObject)
+                {
+                    Destroy(p);
+                    Debug.Log("Player duplicado destruido.");
+                }
+            }
 
+            // --- CAMERA ---
+            GameObject[] cameras = GameObject.FindGameObjectsWithTag("MainCamera");
+            foreach (var c in cameras)
+            {
+                if (cameraGameObject == null)
+                {
+                    cameraGameObject = c;
+                    DontDestroyOnLoadSafe(cameraGameObject);
+                }
+                else if (c != cameraGameObject)
+                {
+                    Destroy(c);
+                    Debug.Log("Cámara duplicada destruida.");
+                }
+            }
+
+            // --- NPCs ---
+            var nuevosNPCs = FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None);
+            foreach (var npc in nuevosNPCs)
+            {
+                // Verifica si ya está en la lista persistente
+                if (!npcGameObjects.Contains(npc.gameObject))
+                {
+                    npcGameObjects.Add(npc.gameObject);
+                    DontDestroyOnLoadSafe(npc.gameObject);
+                    Debug.Log($"NPC agregado y marcado como persistente: {npc.name}");
+                }
+                else if (npc.gameObject.scene.name == "JUEGO") // NPC extra en escena, destruirlo
+                {
+                    Destroy(npc.gameObject);
+                    Debug.Log($"NPC duplicado destruido: {npc.name}");
+                }
+            }
+
+            // Restaurar estado si es necesario
+            if (!estadoRestaurado)
+            {
+                GameState estado = SaveSystem.CargarEstado();
+                if (estado != null)
+                {
+                    SaveSystem.RestaurarDesdeGameState(estado);
+                    estadoRestaurado = true;
+                }
+                else
+                {
+                    ManagerNPCs.Instance.InicializarEscena(); // Solo debe ejecutarse 1 vez
+                }
+            }
+
+            // Activar objetos persistentes al volver al mapa
+            if (playerGameObject != null) playerGameObject.SetActive(true);
+            if (cameraGameObject != null) cameraGameObject.SetActive(true);
+            foreach (var npcGO in npcGameObjects)
+            {
+                if (npcGO != null) npcGO.SetActive(true);
+            }
         }
         else
         {
-            // No hay guardado, inicializa normalmente
-            FindAnyObjectByType<ManagerNPCs>()?.InicializarEscena();
+            // En otras escenas, ocultar los objetos persistentes
+            if (playerGameObject != null) playerGameObject.SetActive(false);
+            if (cameraGameObject != null) cameraGameObject.SetActive(false);
+            foreach (var npcGO in npcGameObjects)
+            {
+                if (npcGO != null) npcGO.SetActive(false);
+            }
         }
     }
 
+    // Marca para que no se destruyan al cambiar escena
+    public void DontDestroyOnLoadSafe(GameObject go)
+    {
+        if (go == null) return;
+        DontDestroyOnLoad(go.transform.root.gameObject);
+    }
+
+
     private IEnumerator EsperarYRestaura(GameState estado)
     {
-        yield return new WaitForSeconds(0.1f); // Asegura que la escena haya terminado de cargar
+        yield return new WaitForSeconds(0.1f); // Espera que termine de cargar escena
 
         SaveSystem.RestaurarDesdeGameState(estado);
 
@@ -97,7 +194,6 @@ public class GameManager : MonoBehaviour
         Debug.Log("Estado guardado automáticamente.");
     }
 
-    // También útil si quieres forzar el guardado desde otro script
     public void GuardarManual()
     {
         GuardarEstadoAutomatico();
@@ -118,12 +214,22 @@ public class GameManager : MonoBehaviour
         DialogueSequence seq = ScriptableObject.CreateInstance<DialogueSequence>();
         seq.lines = new DialogueLine[]
         {
-        new DialogueLine
-        {
-            speakerName = npc.name,
-            dialogueText = "Tu sueldo será de $" + npc.contratoAsignado.sueldo.ToString("N0")
-        }
+            new DialogueLine
+            {
+                speakerName = npc.name,
+                dialogueText = "Tu sueldo será de $" + npc.contratoAsignado.sueldo.ToString("N0")
+            }
         };
         return seq;
+    }
+
+    public void VolverAlMapaPrincipal()
+    {
+        estadoRestaurado = false;
+
+        if (SceneManager.GetActiveScene().name == "JUEGO")
+            GuardarEstadoAutomatico();
+
+        SceneManager.LoadScene("JUEGO");
     }
 }

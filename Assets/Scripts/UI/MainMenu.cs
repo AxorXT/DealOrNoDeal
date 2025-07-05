@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,13 +15,20 @@ public class MainMenu : MonoBehaviour
     public GameObject mapContractsUI; // Panel con los botones de contratos
     public CameraManager cameraManager; // Referencia al script CameraManager
 
-    void Start()
+    void Awake()
+    {
+        SaveFlags.estadoRestauradoDesdeArchivo = false;
+    }
+
+    void Start()
     {
         StartCoroutine(FlujoInicial());
     }
 
     IEnumerator FlujoInicial()
     {
+        SaveFlags.estadoRestauradoDesdeArchivo = false;
+
         Debug.Log("Ruta de guardado: " + Application.persistentDataPath);
 
         GameState estadoGuardado = SaveSystem.CargarEstado();
@@ -28,10 +36,17 @@ public class MainMenu : MonoBehaviour
 
         if (estadoGuardado != null)
         {
+            if (!string.IsNullOrEmpty(estadoGuardado.npcActivoNombre))
+            {
+                yield return new WaitUntil(() =>
+                {
+                    bool npcExiste = FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None)
+                        .Any(n => n.idUnico == estadoGuardado.npcActivoNombre);
+                    bool dialogueManagerExiste = FindAnyObjectByType<DialogueManager>() != null;
 
-            // Esperar hasta que los NPCs existan en la escena
-            yield return new WaitUntil(() => FindObjectsByType<NPCInteractivo>(FindObjectsSortMode.None).Length > 0);
-
+                    return npcExiste && dialogueManagerExiste;
+                });
+            }
             SaveSystem.RestaurarDesdeGameState(estadoGuardado);
 
             if (manager != null)
@@ -43,7 +58,14 @@ public class MainMenu : MonoBehaviour
             panelOpciones.SetActive(false);
             BotonMapaBack.SetActive(false);
             mapContractsUI.SetActive(false);
-            player.SetActive(true);
+            if (player != null)
+            {
+                player.SetActive(true);
+            }
+            else
+            {
+                Debug.LogWarning("player es null o fue destruido");
+            }
 
             if (cameraManager != null)
             {
@@ -63,13 +85,10 @@ public class MainMenu : MonoBehaviour
                 if (npc != null)
                     yield return StartCoroutine(MostrarDialogoSueldo(npc));
             }
-            else
+            GameObject nubesMenu = GameObject.FindGameObjectWithTag("FondoNubes"); // o por tag
+            if (nubesMenu != null)
             {
-                if (cameraManager != null)
-                {
-                    cameraManager.RestaurarPosicionDesdeGuardado();
-                    cameraManager.TransitionToPlayer();
-                }
+                nubesMenu.SetActive(false);
             }
 
             Cursor.lockState = CursorLockMode.Locked;
@@ -103,19 +122,27 @@ public class MainMenu : MonoBehaviour
         mapContractsUI.SetActive(true);
         BotonMapaBack.SetActive(true);
 
-        GameState estadoGuardado = SaveSystem.CargarEstado();
         ManagerNPCs manager = FindAnyObjectByType<ManagerNPCs>();
 
-        if (estadoGuardado != null)
+        if (!SaveFlags.estadoRestauradoDesdeArchivo)
         {
-            SaveSystem.RestaurarDesdeGameState(estadoGuardado);
+            GameState estadoGuardado = SaveSystem.CargarEstado();
+
+            if (estadoGuardado != null)
+            {
+                SaveSystem.RestaurarDesdeGameState(estadoGuardado);
+            }
+            else
+            {
+                if (manager != null)
+                {
+                    manager.InicializarEscena(); // Solo si no hay guardado
+                }
+            }
         }
         else
         {
-            if (manager != null)
-            {
-                manager.InicializarEscena(); // Solo si no hay guardado
-            }
+            Debug.Log("El estado ya fue restaurado previamente, se evita la sobreescritura.");
         }
 
         if (cameraManager != null)
@@ -175,8 +202,8 @@ public class MainMenu : MonoBehaviour
 
     IEnumerator MostrarDialogoSueldo(NPCInteractivo npc)
     {
-        npc.ocultarAlFinalizarDialogo = false;
-        player.GetComponent<PlayerMovement>().enabled = false;
+        npc.ocultarAlFinalizarDialogo = true;
+        player.GetComponent<PlayerMovement>().enabled = true;
 
         CamaraFollow follow = Camera.main.GetComponent<CamaraFollow>();
         if (follow != null)
@@ -188,8 +215,13 @@ public class MainMenu : MonoBehaviour
         yield return new WaitForSeconds(0.4f);
 
         DialogueManager dialogueManager = FindAnyObjectByType<DialogueManager>();
+        if (dialogueManager == null)
+        {
+            Debug.LogWarning("DialogueManager no encontrado o destruido. No se puede mostrar diálogo.");
+            yield break; // Salir de la coroutine para evitar errores
+        }
 
-        //Elegir el segundo diálogo si el trabajo ya fue aceptado
+        // Elegir el segundo diálogo si el trabajo ya fue aceptado
         if (npc.trabajoYaAsignado && npc.segundoDialogo != null)
         {
             dialogueManager.StartDialogue(npc.segundoDialogo, npc);
@@ -212,11 +244,12 @@ public class MainMenu : MonoBehaviour
                 follow.enabled = false;
         }
 
-        //Limpiar estado para no repetir el diálogo
+        // Limpiar estado para no repetir el diálogo
         GameState estado = SaveSystem.CargarEstado();
         estado.mostrarDialogoSueldo = false;
         estado.npcActivoNombre = null;
         SaveSystem.GuardarEstado(estado);
+        GameManager.Instance.GuardarManual();
     }
 
     private DialogueSequence CrearDialogoSueldo(NPCInteractivo npc)
